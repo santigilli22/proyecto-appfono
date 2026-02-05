@@ -3,7 +3,7 @@ import { Stethoscope, Users, PlusCircle } from 'lucide-react';
 
 const Layout = () => {
     const location = useLocation();
-    const isFullWidthObj = location.pathname === '/billing';
+    const isFullWidthObj = location.pathname === '/billing' || location.pathname === '/calendar';
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -21,6 +21,9 @@ const Layout = () => {
                                 </Link>
                                 <Link to="/patients" className="border-transparent text-slate-500 hover:border-teal-500 hover:text-teal-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                     Pacientes
+                                </Link>
+                                <Link to="/calendar" className="border-transparent text-slate-500 hover:border-teal-500 hover:text-teal-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                    Turnero
                                 </Link>
                                 <Link to="/billing" className="border-transparent text-slate-500 hover:border-teal-500 hover:text-teal-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                     Facturación

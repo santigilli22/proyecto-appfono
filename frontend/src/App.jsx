@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage';
 import PatientsPage from './pages/PatientsPage';
 import AddPatientPage from './pages/AddPatientPage';
 import BillingPage from './pages/BillingPage';
+import CalendarPage from './pages/CalendarPage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="patients" element={<PatientsPage />} />
           <Route path="patients/new" element={<AddPatientPage />} />
           <Route path="billing" element={<BillingPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
