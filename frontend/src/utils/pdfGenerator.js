@@ -27,7 +27,7 @@ const config = {
     licenseNumber: "M.P. 9309",
     telephone: "Tel: (3564) 588638",
     email: "Email: fga.gavigliolucia@gmail.com",
-    logoUrl: "/logo.webp" || "/logo.png",
+    logoUrl: "/logo.png",
     colors: {
         primaryDark: [80, 60, 60],
         accentPink: [225, 150, 150],
@@ -47,7 +47,7 @@ const drawHeader = (doc, width, height, margin) => {
         // Draw white background for logo area
         doc.setFillColor(255, 255, 255);
         doc.rect(margin, 10, logoWidth, logoHeight, 'F');
-        doc.addImage(config.logoUrl, 'WEBP', margin, 12, logoWidth, logoHeight, undefined, 'FAST');
+        doc.addImage(config.logoUrl, 'PNG', margin, 12, logoWidth, logoHeight, undefined, 'FAST');
     } catch (e) {
         console.warn("Logo lookup failed", e);
     }
