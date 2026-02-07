@@ -113,22 +113,24 @@ function extractData(text, filename = '') {
     const periodLabelIndex = lines.findIndex(l => l.includes("Período Facturado Desde"));
 
     if (periodLabelIndex !== -1) {
-        // Usually looks like: "Período Facturado Desde: 01/01/2024 Hasta: 31/01/2024"
-        // Or split across lines (labels on one line, values on another 5 lines down).
-        // We scan up to 10 lines ahead.
+        let collectedDates = [];
         for (let i = 0; i <= 10; i++) {
             if (periodLabelIndex + i >= lines.length) break;
             const line = lines[periodLabelIndex + i];
 
-            // Skip "Inicio de Actividades" lines if they end up here (unlikely but safe)
+            // Skip activity start date
             if (line.includes("Inicio de Actividades")) continue;
 
             const dates = line.match(/(\d{2}\/\d{2}\/\d{4})/g);
-            if (dates && dates.length >= 2) {
-                data.periodFrom = dates[0];
-                data.periodTo = dates[1];
-                break;
+            if (dates) {
+                collectedDates.push(...dates);
             }
+            if (collectedDates.length >= 2) break;
+        }
+
+        if (collectedDates.length >= 2) {
+            data.periodFrom = collectedDates[0];
+            data.periodTo = collectedDates[1];
         }
     }
 

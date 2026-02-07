@@ -147,8 +147,7 @@ router.post('/upload', upload.array('invoices'), async (req, res) => {
 // POST: Manual Invoice Creation
 router.post('/manual', async (req, res) => {
     try {
-        const { invoiceNumber, date, clientName, clientCuit, total, patientName, patientDNI } = req.body;
-
+        const { invoiceNumber, date, clientName, clientCuit, total, patientName, patientDNI, periodFrom } = req.body;
         // Validation
         if (!invoiceNumber || !date || !clientName || !total) {
             return res.status(400).json({ message: 'Missing required fields: invoiceNumber, date, clientName, total' });
@@ -176,6 +175,12 @@ router.post('/manual', async (req, res) => {
         const newInvoice = new Invoice({
             invoiceNumber,
             date: new Date(date),
+            // If periodFrom is provided, use it. Otherwise backend might rely on its default extraction or leave empty.
+            // Since we passed a YYYY-MM string, we might want to append a day to save it as a Date object if the schema expects Date, 
+            // OR if the schema expects String, save as string.
+            // Previous task mentioned: "Exchange 'Emisión' to 'Periodo' (Format: Feb-2026)". 
+            // Let's check schema via logic: parser extracts strings usually. Let's save as string to match existing data.
+            periodFrom: periodFrom || '',
             clientName,
             clientCuit: clientCuit || '',
             total: parseFloat(total),

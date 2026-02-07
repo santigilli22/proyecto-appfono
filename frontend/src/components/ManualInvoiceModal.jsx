@@ -7,6 +7,7 @@ const ManualInvoiceModal = ({ onClose, onSuccess, invoices = [] }) => {
     const [formData, setFormData] = useState({
         invoiceNumber: '',
         date: new Date().toISOString().split('T')[0],
+        periodFrom: '',
         clientName: '',
         clientCuit: '',
         patientName: '',
@@ -127,20 +128,32 @@ const ManualInvoiceModal = ({ onClose, onSuccess, invoices = [] }) => {
                             <input
                                 type="text"
                                 name="invoiceNumber"
-                                required
+                                required={formData.clientName !== 'PARTICULAR'}
                                 value={formData.invoiceNumber}
                                 onChange={handleChange}
-                                placeholder="ej. 0001-00001234"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                                placeholder={formData.clientName === 'PARTICULAR' ? 'Generado Automáticamente' : 'ej. 0001-00001234'}
+                                disabled={formData.clientName === 'PARTICULAR'}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow ${formData.clientName === 'PARTICULAR' ? 'bg-gray-100 text-gray-400 cursor-not-allowed italic' : 'border-gray-300'
+                                    }`}
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-gray-500 uppercase">Fecha *</label>
+                            <label className="text-xs font-semibold text-gray-500 uppercase">Fecha Emisión *</label>
                             <input
                                 type="date"
                                 name="date"
                                 required
                                 value={formData.date}
+                                onChange={handleChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-semibold text-gray-500 uppercase">Período Facturado</label>
+                            <input
+                                type="month"
+                                name="periodFrom"
+                                value={formData.periodFrom}
                                 onChange={handleChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
                             />
@@ -154,9 +167,17 @@ const ManualInvoiceModal = ({ onClose, onSuccess, invoices = [] }) => {
                             checked={formData.clientName === 'PARTICULAR'}
                             onChange={(e) => {
                                 if (e.target.checked) {
-                                    setFormData(prev => ({ ...prev, clientName: 'PARTICULAR', clientCuit: '' }));
+                                    // Auto-generate a unique-ish number for particulars (Receipt style)
+                                    const timestamp = new Date().getTime().toString().slice(-6);
+                                    const generatedNumber = `P-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${timestamp}`;
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        clientName: 'PARTICULAR',
+                                        clientCuit: '',
+                                        invoiceNumber: generatedNumber
+                                    }));
                                 } else {
-                                    setFormData(prev => ({ ...prev, clientName: '' }));
+                                    setFormData(prev => ({ ...prev, clientName: '', invoiceNumber: '' }));
                                 }
                             }}
                             className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
@@ -212,7 +233,7 @@ const ManualInvoiceModal = ({ onClose, onSuccess, invoices = [] }) => {
                         )}
                     </div>
 
-                    {!formData.clientName === 'PARTICULAR' && (
+                    {formData.clientName !== 'PARTICULAR' && (
                         <div className="space-y-1">
                             <label className="text-xs font-semibold text-gray-500 uppercase">CUIT Entidad (Opcional)</label>
                             <input
@@ -313,8 +334,8 @@ const ManualInvoiceModal = ({ onClose, onSuccess, invoices = [] }) => {
                         )}
                     </button>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

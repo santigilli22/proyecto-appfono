@@ -222,19 +222,28 @@ const BillingPage = () => {
     };
 
     // --- Aging Logic ---
-    const getDaysOverdue = (date) => {
-        if (!date) return 0;
-        const invoiceDate = new Date(date);
+    const getDaysOverdue = (invoice) => {
+        if (!invoice) return 0;
+        // Priority: periodTo (end of month/service) or fallback to invoice.date (emission)
+        const referenceDateStr = invoice.periodTo || invoice.date;
+        if (!referenceDateStr) return 0;
+
+        const referenceDate = new Date(referenceDateStr);
         const today = new Date();
-        const diffTime = Math.abs(today - invoiceDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        today.setHours(0, 0, 0, 0); // Normalize today
+
+        // Difference in ms (positive if referenceDate is in the past)
+        const diffTime = today - referenceDate;
+        if (diffTime <= 0) return 0; // Not overdue yet
+
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
     };
 
     const renderAgingBadge = (invoice) => {
         if (invoice.paymentStatus === 'Paid') return null; // Don't show if paid
 
-        const days = getDaysOverdue(invoice.date);
+        const days = getDaysOverdue(invoice);
 
         if (days > 90) {
             return (
@@ -261,7 +270,7 @@ const BillingPage = () => {
     const getRowClass = (invoice) => {
         if (invoice.paymentStatus === 'Paid') return 'hover:bg-gray-50';
 
-        const days = getDaysOverdue(invoice.date);
+        const days = getDaysOverdue(invoice);
 
         if (days > 90) return 'bg-red-50 hover:bg-red-100 transition-colors';
         if (days > 60) return 'bg-orange-50 hover:bg-orange-100 transition-colors';
@@ -272,22 +281,17 @@ const BillingPage = () => {
 
     // --- Reports Logic ---
     const getFilteredReportsData = () => {
-        const start = new Date(reportStartDate);
-        const end = new Date(reportEndDate);
-        end.setHours(23, 59, 59, 999); // Include full end day
-
         return invoices.filter(inv => {
-            // Use Period if available, otherwise fallback to Emission Date
-            const date = new Date(inv.periodFrom || inv.date);
-
-            // Adjust for user timezone offset for comparison
-            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-            const adjustedDate = new Date(date.getTime() + userTimezoneOffset);
+            // Normalize dates to YYYY-MM-DD strings for comparison
+            const invDate = new Date(inv.periodFrom || inv.date).toISOString().split('T')[0];
+            const start = reportStartDate; // Already YYYY-MM-DD
+            const end = reportEndDate;     // Already YYYY-MM-DD
 
             const entityMatch = selectedEntity
                 ? (inv.clientName || 'Desconocido').trim().toUpperCase() === selectedEntity
                 : true;
-            return adjustedDate >= start && adjustedDate <= end && entityMatch;
+
+            return invDate >= start && invDate <= end && entityMatch;
         });
     };
 
@@ -335,9 +339,18 @@ const BillingPage = () => {
 
     // Entity Breakdown
     const entityStats = Object.values(reportData.reduce((acc, inv) => {
-        // Normalize name group distinct variants (e.g. "Osde" == "OSDE")
-        // Ensuring PARTICULAR is grouped as one entity
-        const name = (inv.clientName || 'Desconocido').trim().toUpperCase();
+        const entityName = (inv.clientName || 'Desconocido').trim().toUpperCase();
+
+        // Grouping Strategy:
+        // 1. If we are looking at "All Entities" or another specific OS, 
+        //    keep all Particulars grouped under the label "PARTICULAR".
+        // 2. If the user specifically selected "PARTICULAR" in the filter,
+        //    we break them down by patient name for a more detailed analysis.
+        let name = entityName;
+        if (entityName === 'PARTICULAR' && selectedEntity === 'PARTICULAR') {
+            const patientName = (inv.items?.[0]?.patientName || 'Sin Nombre').trim().toUpperCase();
+            name = `${patientName} (PARTICULAR)`;
+        }
 
         if (!acc[name]) {
             acc[name] = { name, total: 0, pending: 0, count: 0 };
@@ -525,22 +538,24 @@ const BillingPage = () => {
     const handleExportPaymentHistory = () => {
         const columns = [
             { header: 'Emisión', dataKey: 'date' },
-            { header: 'Paciente', dataKey: 'patient' },
-            { header: 'Entidad', dataKey: 'entity' },
             { header: 'Comprobante', dataKey: 'invoice' },
-            { header: 'Total', dataKey: 'total' },
+            { header: 'Tipo', dataKey: 'type' },
+            { header: 'Período', dataKey: 'period' },
+            { header: 'Entidad', dataKey: 'entity' },
+            { header: 'Facturado', dataKey: 'total' },
             { header: 'Pagado', dataKey: 'paid' },
             { header: 'Saldo', dataKey: 'balance' },
-            { header: 'Estado', dataKey: 'status' },
+            { header: 'Estado', dataKey: 'status' }
         ];
 
         const data = currentInvoices.map(inv => ({
+            period: formatPeriod(inv.periodFrom || inv.date),
+            invoice: inv.invoiceNumber,
+            type: inv.tipo,
             date: new Date(inv.date).toLocaleDateString(),
-            patient: (inv.items?.[0]?.patientName || '-').toUpperCase(),
             entity: (inv.clientName || 'Desconocido').toUpperCase(),
-            invoice: `${inv.invoiceNumber} (${inv.tipo})`,
             total: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(inv.total),
-            paid: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(inv.payments?.reduce((sum, p) => sum + p.amount, 0) || 0),
+            paid: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(inv.total - (inv.balance ?? inv.total)),
             balance: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(inv.balance ?? inv.total),
             status: inv.paymentStatus === 'Paid' ? 'PAGADO' : (inv.paymentStatus === 'Partial' ? 'PARCIAL' : 'PENDIENTE')
         }));
@@ -552,19 +567,20 @@ const BillingPage = () => {
                 body: data.map(row => columns.map(col => row[col.dataKey])),
                 theme: 'striped',
                 headStyles: { fillColor: [66, 139, 202], valign: 'middle', halign: 'center' },
-                styles: { fontSize: 8, valign: 'middle', cellPadding: 2 }, // Smaller font for more columns
+                styles: { fontSize: 8, valign: 'middle', cellPadding: 2 },
                 columnStyles: {
-                    0: { halign: 'center' }, // Date
-                    1: { halign: 'left' },   // Patient
-                    2: { halign: 'left' },   // Entity
-                    3: { halign: 'center' }, // Invoice
-                    4: { halign: 'right' },  // Total
-                    5: { halign: 'right' },  // Paid
-                    6: { halign: 'right' },  // Balance
-                    7: { halign: 'center' }, // Status
+                    0: { halign: 'center' }, // Emission
+                    1: { halign: 'center' }, // Invoice
+                    2: { halign: 'center' }, // Type
+                    3: { halign: 'center' }, // Period
+                    4: { halign: 'left' },   // Entity
+                    5: { halign: 'right' },  // Total
+                    6: { halign: 'right' },  // Paid
+                    7: { halign: 'right' },  // Balance
+                    8: { halign: 'center' }, // Status
                 },
             });
-        }, 'landscape'); // Landscape for better fit
+        }, 'landscape');
     };
 
     return (
@@ -754,7 +770,7 @@ const BillingPage = () => {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr className="text-center">
-                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Emisión</th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Período</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Comprobante</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Receptor</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Paciente</th>
@@ -766,7 +782,7 @@ const BillingPage = () => {
                                     {todaysInvoices.map((inv) => (
                                         <tr key={inv._id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-center">
-                                                {new Date(inv.date).toLocaleDateString()}
+                                                {formatPeriod(inv.periodFrom || inv.date)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
                                                 {inv.invoiceNumber}
@@ -774,7 +790,7 @@ const BillingPage = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="font-medium text-gray-900">{inv.clientName.toUpperCase()}</span>
+                                                    <span className="font-medium text-gray-900" title={inv.clientName.toUpperCase()}>{inv.clientName.toUpperCase()}</span>
                                                     <span className="text-xs text-gray-400 font-mono mt-0.5">CUIT: {inv.clientCuit || '-'}</span>
                                                 </div>
                                             </td>
@@ -878,11 +894,12 @@ const BillingPage = () => {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr className="text-center">
-                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Período</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Paciente</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Entidad</th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Emisión</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Comprobante</th>
-                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Período</th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Entidad</th>
+                                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Facturado</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Pagado</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Saldo</th>
                                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
@@ -893,19 +910,20 @@ const BillingPage = () => {
                                     {currentInvoices.length > 0 ? (
                                         currentInvoices.map((inv) => (
                                             <tr key={inv._id} className={getRowClass(inv)}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                                    {new Date(inv.date).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center font-medium">
+                                                    {inv.invoiceNumber}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-blue-600">
+                                                    {inv.tipo}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-medium capitalize">
                                                     {formatPeriod(inv.periodFrom || inv.date)}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                    <span className="font-medium text-gray-900 truncate max-w-[150px] block mx-auto">
-                                                        {inv.items?.[0]?.patientName || '-'}
-                                                    </span>
-                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                                    <span className="truncate max-w-[150px] block mx-auto">{inv.clientName}</span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                                    {inv.invoiceNumber}
+                                                    <span className="truncate max-w-[150px] block mx-auto" title={inv.clientName.toUpperCase()}>{inv.clientName.toUpperCase()}</span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900">
                                                     {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(inv.total)}

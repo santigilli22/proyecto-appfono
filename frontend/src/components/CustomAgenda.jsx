@@ -6,7 +6,7 @@ import { X, User, Phone, FileText, Clock, CheckCircle, XCircle, Calendar as Cale
 // ...
 
 
-const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClick, currentDate }) => {
+const CustomAgenda = ({ events, timeSlots, compact = false, onlyEvents = false, onCancel, onSlotClick, currentDate }) => {
     const [selectedEvent, setSelectedEvent] = useState(null);
 
     // If timeSlots not provided, fallback to default generation (safety)
@@ -70,7 +70,6 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClic
                             const eventsByTime = {};
                             dayEvents.forEach(evt => {
                                 const existing = eventsByTime[evt.resource.time];
-                                // If collision: prefer Active over Cancelled
                                 if (!existing) {
                                     eventsByTime[evt.resource.time] = evt;
                                 } else if (existing.resource.status === 'Cancelled' && evt.resource.status !== 'Cancelled') {
@@ -78,10 +77,28 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClic
                                 }
                             });
 
-                            const rows = allTimeSlots.map(time => {
+                            let rows = allTimeSlots.map(time => {
                                 const event = eventsByTime[time];
                                 return { time, event, type: event ? 'event' : 'free' };
                             });
+
+                            // FILTER: If onlyEvents is true, remove free slots
+                            if (onlyEvents) {
+                                rows = rows.filter(r => r.type === 'event');
+                            }
+
+                            // If filtering resulted in no rows for this date, and we are iterating dates from events, 
+                            // we might still want to show something? 
+                            // But usually groupedEvents only has dates WITH events.
+                            // Exception: "Today" might be forced.
+
+                            if (rows.length === 0) {
+                                // If force-showing a date but it has no events (after filtering free slots), show empty message row for this date?
+                                // Or simply render nothing for this date?
+                                // Let's render nothing for this date loop so the global "Empty State" below catches it 
+                                // if ALL dates end up empty.
+                                return null;
+                            }
 
                             return rows.map((row, index) => {
                                 const isEvent = row.type === 'event';
@@ -91,7 +108,6 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClic
                                 if (isEvent) {
                                     status = getEventStatus(row.event);
                                 } else {
-                                    // Check if slot is in the past
                                     const [h, m] = row.time.split(':').map(Number);
                                     const slotDate = new Date(dateObj);
                                     slotDate.setHours(h, m, 0, 0);
@@ -109,17 +125,17 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClic
                                             }
                                         }}
                                         className={`transition-colors cursor-pointer group/row
+                                    ${compact ? 'h-[40px]' : ''}
                                     ${row.type === 'free' ?
                                                 (isPastSlot ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:bg-green-50 cursor-pointer') :
                                                 status === 'completed' ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' :
                                                     status === 'canceled' ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' :
                                                         'hover:bg-indigo-50 border-l-4 border-l-indigo-500'}`}
                                     >
+                                        {/* ... render cells ... */}
                                         {!compact && index === 0 && (
-                                            <td
-                                                rowSpan={rows.length}
-                                                className="px-6 py-6 font-bold text-gray-800 text-center align-top border-r border-gray-200 bg-white"
-                                            >
+                                            <td rowSpan={rows.length} className="px-6 py-6 font-bold text-gray-800 text-center align-top border-r border-gray-200 bg-white">
+                                                {/* Date Cell Content */}
                                                 <div className="sticky top-4 flex flex-col items-center gap-1">
                                                     <span className="text-4xl font-extrabold text-indigo-600">{format(dateObj, 'dd')}</span>
                                                     <span className="text-sm font-bold uppercase tracking-widest text-gray-400">{format(dateObj, 'MMM', { locale: es })}</span>
@@ -127,63 +143,85 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClic
                                                 </div>
                                             </td>
                                         )}
-                                        <td className={`${compact ? 'px-3 py-2 text-xs w-16' : 'px-6 py-3'} text-center border-r border-gray-100 font-mono align-middle
-                                        ${row.type === 'free' ? 'opacity-50 text-gray-500' :
-                                                status === 'completed' ? 'font-bold text-green-700' :
-                                                    status === 'canceled' ? 'font-bold text-red-500 line-through' :
-                                                        'font-bold text-indigo-700'}`}>
-                                            {row.time}
-                                        </td>
-                                        <td className={`${compact ? 'px-3 py-2' : 'px-6 py-3'} align-middle`}>
-                                            {row.type === 'event' ? (
-                                                <div className="flex justify-between items-center h-full">
-                                                    <div className="flex flex-col gap-1 overflow-hidden justify-center">
-                                                        <div className="flex items-center gap-2">
-                                                            {/* Status Dot */}
-                                                            {!compact && (
-                                                                <div className={`w-2.5 h-2.5 rounded-full shadow-sm ring-2 ring-white flex-shrink-0 ${status === 'completed' ? 'bg-green-500' :
-                                                                    status === 'canceled' ? 'bg-red-500' :
-                                                                        'bg-indigo-500'
-                                                                    }`} />
-                                                            )}
-
-                                                            <span className={`font-semibold truncate ${compact ? 'text-xs' : ''} ${status === 'canceled' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                                                                {row.event.title.split(' (')[0]}
-                                                            </span>
-
-                                                            {status === 'completed' && compact && (
-                                                                <CheckCircle className="w-3 h-3 text-green-600" />
-                                                            )}
+                                        {/* ... cell rendering continues same as before ... */}
+                                        {compact && row.type === 'free' ? (
+                                            <td colSpan={2} className="px-3 py-1.5 text-xs text-center font-mono opacity-50 text-gray-500 align-middle">
+                                                {row.time}
+                                            </td>
+                                        ) : (
+                                            <>
+                                                <td className={`${compact ? 'px-3 py-1.5 text-xs w-20 min-w-[80px]' : 'px-6 py-3 w-28'} text-center border-r border-gray-100 font-mono align-middle
+                                                ${row.type === 'free' ? 'opacity-50 text-gray-500' :
+                                                        status === 'completed' ? 'font-bold text-green-700' :
+                                                            status === 'canceled' ? 'font-bold text-red-500 line-through' :
+                                                                'font-bold text-indigo-700'}`}>
+                                                    {row.time}
+                                                </td>
+                                                <td className={`${compact ? 'px-3 py-1.5 w-full max-w-0 overflow-hidden' : 'px-6 py-3'} align-middle`}>
+                                                    {/* Event Content */}
+                                                    {row.type === 'event' ? (
+                                                        <div className="flex justify-between items-center h-full">
+                                                            <div className="flex flex-col gap-1 overflow-hidden justify-center">
+                                                                <div className="flex items-center gap-2">
+                                                                    {!compact && (
+                                                                        <div className={`w-2.5 h-2.5 rounded-full shadow-sm ring-2 ring-white flex-shrink-0 ${status === 'completed' ? 'bg-green-500' :
+                                                                            status === 'canceled' ? 'bg-red-500' :
+                                                                                'bg-indigo-500'
+                                                                            }`} />
+                                                                    )}
+                                                                    <span className={`font-semibold truncate ${compact ? 'text-xs' : ''} ${status === 'canceled' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                                                        {row.event.title.split(' (')[0]}
+                                                                    </span>
+                                                                    {status === 'completed' && compact && (
+                                                                        <CheckCircle className="w-3 h-3 text-green-600" />
+                                                                    )}
+                                                                </div>
+                                                                {!compact && row.event.resource.notes && (
+                                                                    <p className="text-xs text-gray-500 ml-5 pl-3 border-l-2 border-gray-100">{row.event.resource.notes}</p>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        {!compact && row.event.resource.notes && (
-                                                            <p className="text-xs text-gray-500 ml-5 pl-3 border-l-2 border-gray-100">{row.event.resource.notes}</p>
-                                                        )}
-                                                    </div>
-
-
-                                                </div>
-                                            ) : (
-                                                isPastSlot ? (
-                                                    <span className="text-gray-300 text-xs">-</span>
-                                                ) : (
-                                                    <div className="flex items-center gap-2 opacity-30 group hover:opacity-100 transition-opacity h-full">
-                                                        {!compact && <div className="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-green-400" />}
-                                                        <span className={`text-gray-400 italic font-medium group-hover:text-green-600 ${compact ? 'text-[10px]' : 'text-sm'}`}>
-                                                            {compact ? '-' : 'Disponible'}
-                                                        </span>
-                                                    </div>
-                                                )
-                                            )}
-                                        </td>
+                                                    ) : (
+                                                        // Free slot content (only reachable if !onlyEvents)
+                                                        isPastSlot ? (
+                                                            <span className="text-gray-300 text-xs">-</span>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 opacity-30 group hover:opacity-100 transition-opacity h-full">
+                                                                {!compact && <div className="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-green-400" />}
+                                                                <span className={`text-gray-400 italic font-medium group-hover:text-green-600 ${compact ? 'text-[10px]' : 'text-sm'}`}>
+                                                                    {compact ? '-' : 'Disponible'}
+                                                                </span>
+                                                            </div>
+                                                        )
+                                                    )}
+                                                </td>
+                                            </>
+                                        )}
                                     </tr>
-                                )
+                                );
                             });
                         })}
-                        {datesToRender.length === 0 && (
+
+                        {/* Improved Empty State - Only show if we are in "Only Events" mode (Home) */}
+                        {(events.length === 0 && onlyEvents) && (
                             <tr>
-                                <td colSpan="3" className="px-6 py-12 text-center text-gray-400 bg-gray-50">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <p className="text-lg font-medium">No hay actividad</p>
+                                <td colSpan={compact ? 2 : 3} className="px-6 py-16 text-center text-gray-400 bg-gray-50/50">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                                            <CalendarIcon className="w-8 h-8 text-gray-300" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-gray-900 font-medium text-sm">No hay turnos programados</p>
+                                            <p className="text-xs text-gray-500 max-w-[200px] mx-auto">
+                                                No tenés pacientes agendados para este período. ¡Aprovechá para descansar!
+                                            </p>
+                                        </div>
+                                        {/* Optional Call to Action */}
+                                        {!compact && (
+                                            <button className="mt-2 text-indigo-600 text-xs font-bold hover:underline">
+                                                + Agendar Nuevo Turno
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -191,6 +229,7 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onCancel, onSlotClic
                     </tbody>
                 </table>
             </div>
+
 
             {/* Event Detail Modal (Redesigned) */}
             {selectedEvent && (

@@ -200,13 +200,13 @@ const CalendarPage = () => {
 
                     return (
                         <div key={dateStr} className={`flex flex-col min-w-0 ${isToday ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-xl' : ''}`}>
-                            <div className={`p-3 text-center border-b border-gray-100 rounded-t-xl
+                            <div className={`p-1 text-center border-b border-gray-100 rounded-t-xl h-20 flex flex-col justify-center
                                 ${isToday ? 'bg-indigo-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}
                              `}>
-                                <p className="text-xs font-bold uppercase tracking-wider opacity-80">
+                                <p className="text-xs font-bold uppercase tracking-wider opacity-80 mb-0.5">
                                     {format(dayDate, 'EEEE', { locale: es })}
                                 </p>
-                                <p className="text-2xl font-bold">
+                                <p className="text-2xl font-black leading-none">
                                     {format(dayDate, 'd')}
                                 </p>
                             </div>
