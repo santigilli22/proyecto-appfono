@@ -1,24 +1,35 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import startOfWeek from 'date-fns/startOfWeek';
-import es from 'date-fns/locale/es';
+import { format, parse, startOfWeek } from 'date-fns';
+import { es } from 'date-fns/locale';
 import axios from 'axios';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, PlusCircle } from 'lucide-react';
 import Toast from '../components/Toast';
 import CustomAgenda from '../components/CustomAgenda';
 import AppointmentForm from '../components/AppointmentForm';
+import { useSocket } from '../context/SocketContext';
 
 const CalendarPage = () => {
     const [events, setEvents] = useState([]);
     const [toast, setToast] = useState(null);
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [modalData, setModalData] = useState(null); // { date: 'yyyy-MM-dd', time: 'HH:mm' }
+    const socket = useSocket();
 
-    // Initial Fetch
+    // Initial Fetch & Socket Listener
     useEffect(() => {
         fetchAppointments();
-    }, []);
+
+        if (socket) {
+            socket.on('appointment_change', () => {
+                console.log("CalendarPage: Appointment changed, refreshing...");
+                fetchAppointments();
+            });
+
+            return () => {
+                socket.off('appointment_change');
+            };
+        }
+    }, [socket]);
 
     const fetchAppointments = async () => {
         try {
@@ -122,7 +133,8 @@ const CalendarPage = () => {
 
     // --- Handlers ---
     const handleCancelAppointment = async (appt) => {
-        if (!window.confirm(`¿Seguro que querés cancelar el turno de ${appt.title}?`)) return;
+        // Confirmation is handled by the UI component (CustomAgenda)
+        // if (!window.confirm(`¿Seguro que querés cancelar el turno de ${appt.title}?`)) return;
 
         try {
             await axios.put(`http://localhost:5000/api/appointments/${appt.id}`, { status: 'Cancelled' });
@@ -173,7 +185,16 @@ const CalendarPage = () => {
                     </span>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    {/* [NEW] Manual Appointment Button */}
+                    <button
+                        onClick={() => setModalData({ date: '', time: '', isManual: true })}
+                        className="mr-2 px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                        <PlusCircle className="w-4 h-4" />
+                        Nuevo Turno
+                    </button>
+
                     <button onClick={() => navigateWeek(-1)} className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -211,11 +232,14 @@ const CalendarPage = () => {
                                 </p>
                             </div>
 
-                            <div className="bg-white border-x border-b border-gray-200 rounded-b-xl overflow-hidden shadow-sm flex-1">
+                            <div className={`bg-white border-x border-b border-gray-200 rounded-b-xl overflow-hidden shadow-sm 
+                                ${dayEvents.length > 0 ? '' : 'flex-1'}
+                            `}>
                                 <CustomAgenda
                                     events={dayEvents}
                                     timeSlots={timeSlots}
                                     compact={true}
+                                    onlyEvents={true}
                                     onCancel={handleCancelAppointment}
                                     onSlotClick={handleSlotClick}
                                     currentDate={dayDate}
@@ -235,7 +259,8 @@ const CalendarPage = () => {
                             availableSlots={getAvailableSlots(modalData.date)}
                             timeSlots={timeSlots}
                             initialData={{ time: modalData.time }}
-                            readOnlyDateTime={true}
+                            readOnlyDateTime={!modalData.isManual} // Unlock if manual
+                            allowDateSelection={modalData.isManual} // Unlock if manual
                             onSuccess={() => {
                                 fetchAppointments();
                                 setModalData(null);

@@ -39,3 +39,8 @@ backend/debug_*.js
 backend/debug_*.txt
 
 *.pdf
+
+# Backend specific
+backend/.wwebjs_auth/
+backend/.wwebjs_cache/
+backend/error.log

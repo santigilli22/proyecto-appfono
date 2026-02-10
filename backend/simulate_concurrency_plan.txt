@@ -1,0 +1,32 @@
+const axios = require('axios');
+
+const BASE_URL = 'http://localhost:5000/api';
+
+// Mock delay to simulate typing/network
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Mock User State (since we can't easily hook into the running bot's memory from outside, 
+// we will simulate the API calls that the bot makes directly to verify the Logic + Cache)
+// OR better: We can't simulate "WhatsApp Message" events easily without a real client or a mock injection.
+// BUT, the cache is inside `whatsappService.js`. 
+// The best way to test the CACHE is to hit the `whatsappService` logic.
+// Since `whatsappService` is not an API, but a module running inside `server.js`, 
+// we can't externally trigger "client.on('message')" unless we expose a debug endpoint.
+
+// PLAN B: Verify the "Available Slots" endpoint CACHE if I moved it to the Controller? 
+// No, the cache is in `whatsappService.js`.
+// I cannot test `whatsappService`'s internal cache from an external script easily unless I add a "simulate message" endpoint.
+
+// Let's add a temporary POST /api/debug/bot-message endpoint to `server.js` or `whatsappRoutes.js` 
+// that feeds a message into the bot's logic.
+
+async function runSimulation() {
+    console.log("--- Starting Simulation ---");
+    
+    // We need to inject messages. 
+    // IF we cannot inject, we can only test the API performance, but that doesn't use the Bot's cache.
+    
+    console.log("To properly simulate this, I need to add a debug endpoint to inject messages into the bot.");
+}
+
+// runSimulation();

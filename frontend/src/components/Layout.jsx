@@ -1,7 +1,7 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Stethoscope, Users, PlusCircle } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Stethoscope, Users, PlusCircle, MessageSquare } from 'lucide-react';
 
-const Layout = () => {
+const Layout = ({ children }) => {
     const location = useLocation();
     const isFullWidthObj = location.pathname === '/billing' || location.pathname === '/calendar';
 
@@ -28,20 +28,18 @@ const Layout = () => {
                                 <Link to="/billing" className="border-transparent text-slate-500 hover:border-teal-500 hover:text-teal-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                     Facturación
                                 </Link>
+                                <Link to="/whatsapp" className="border-transparent text-slate-500 hover:border-teal-500 hover:text-teal-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                    WhatsApp
+                                </Link>
                             </div>
                         </div>
-                        <div className="flex items-center">
-                            <Link to="/patients/new" className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center shadow-md transition-colors">
-                                <PlusCircle className="h-4 w-4 mr-2" />
-                                Nuevo Paciente
-                            </Link>
-                        </div>
+
                     </div>
                 </div>
             </nav>
 
             <main className={`${isFullWidthObj ? 'w-full' : 'max-w-7xl'} mx-auto py-6 sm:px-6 lg:px-8`}>
-                <Outlet />
+                {children}
             </main>
         </div>
     );

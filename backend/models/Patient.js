@@ -43,6 +43,10 @@ const patientSchema = mongoose.Schema({
     },
     notas: {
         type: String
+    },
+    numerosAutorizados: {
+        type: [String],
+        default: []
     }
 }, {
     timestamps: true

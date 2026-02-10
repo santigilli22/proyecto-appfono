@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Patient = require('../models/Patient');
+const { validate, patientValidation } = require('../middleware/validationMiddleware');
 
 // @desc    Get all patients
 // @route   GET /api/patients
@@ -33,7 +34,7 @@ router.get('/:id', async (req, res) => {
 // @desc    Create a patient
 // @route   POST /api/patients
 // @access  Public
-router.post('/', async (req, res) => {
+router.post('/', validate(patientValidation), async (req, res) => {
     const { nombre, apellido, dni, fechaNacimiento, obraSocial, numeroAfiliado, diagnosticoPrevio, telefono, email, contactoEmergencia, escolaridad, notas } = req.body;
 
     try {
@@ -107,6 +108,29 @@ router.delete('/:id', async (req, res) => {
             res.json({ message: 'Patient removed' });
         } else {
             res.status(404).json({ message: 'Patient not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Validate if patient exists by DNI (for WhatsApp Bot)
+// @route   POST /api/patients/validate
+// @access  Public (Bot)
+router.post('/validate', async (req, res) => {
+    try {
+        const { dni } = req.body;
+        const patient = await Patient.findOne({ dni });
+
+        if (patient) {
+            return res.json({
+                exists: true,
+                id: patient._id,
+                name: `${patient.nombre} ${patient.apellido}`,
+                phone: patient.telefono
+            });
+        } else {
+            return res.status(404).json({ exists: false, message: 'Paciente no encontrado' });
         }
     } catch (error) {
         res.status(500).json({ message: error.message });

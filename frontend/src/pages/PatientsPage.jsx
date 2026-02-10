@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, UserPlus, FileText, Phone } from 'lucide-react';
-import { getPatients } from '../services/api';
+import { Search, UserPlus, FileText, Phone, Edit, Trash2 } from 'lucide-react';
+import { getPatients, deletePatient } from '../services/api';
+import { calculateAge } from '../utils/dateUtils';
+import usePageTitle from '../hooks/usePageTitle';
+import Skeleton from '../components/Skeleton';
 
 const PatientsPage = () => {
+    usePageTitle('Pacientes');
     const [patients, setPatients] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
@@ -20,6 +24,17 @@ const PatientsPage = () => {
         } catch (error) {
             console.error('Error fetching patients:', error);
             setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('¿Estás seguro de eliminar este paciente? Esta acción no se puede deshacer.')) return;
+        try {
+            await deletePatient(id);
+            setPatients(patients.filter(p => p._id !== id));
+        } catch (error) {
+            console.error('Error deleting patient:', error);
+            alert('Error al eliminar paciente');
         }
     };
 
@@ -79,8 +94,35 @@ const PatientsPage = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-200 bg-white">
                             {loading ? (
+                                // Skeleton Rows
+                                [...Array(5)].map((_, index) => (
+                                    <tr key={index}>
+                                        <td className="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
+                                            <Skeleton className="h-4 w-48" />
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4">
+                                            <Skeleton className="h-4 w-24" />
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4">
+                                            <Skeleton className="h-4 w-12" />
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4">
+                                            <Skeleton className="h-4 w-32" />
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4">
+                                            <Skeleton className="h-4 w-24" />
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Skeleton className="h-8 w-8 rounded-lg" />
+                                                <Skeleton className="h-8 w-8 rounded-lg" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : filteredPatients.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="text-center py-4 text-slate-500">Cargando...</td>
+                                    <td colSpan="6" className="text-center py-4 text-slate-500">No se encontraron pacientes.</td>
                                 </tr>
                             ) : filteredPatients.length === 0 ? (
                                 <tr>
@@ -94,7 +136,7 @@ const PatientsPage = () => {
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">{patient.dni}</td>
                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
-                                            {new Date().getFullYear() - new Date(patient.fechaNacimiento).getFullYear()} años
+                                            {calculateAge(patient.fechaNacimiento)} años
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500">
                                             {patient.obraSocial}
@@ -106,10 +148,22 @@ const PatientsPage = () => {
                                             </div>
                                         </td>
                                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                                            <button className="text-teal-600 hover:text-teal-900 flex items-center justify-end w-full">
-                                                <FileText className="h-4 w-4 mr-1" />
-                                                Ver<span className="sr-only">, {patient.nombre}</span>
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                <Link
+                                                    to={`/patients/${patient._id}/edit`}
+                                                    className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-1.5 rounded-lg transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Link>
+                                                <button
+                                                    onClick={() => handleDelete(patient._id)}
+                                                    className="text-red-600 hover:text-red-900 bg-red-50 p-1.5 rounded-lg transition-colors"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

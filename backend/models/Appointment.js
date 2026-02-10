@@ -35,6 +35,10 @@ const appointmentSchema = new mongoose.Schema({
     notes: {
         type: String
     },
+    isActive: {
+        type: Boolean,
+        default: true
+    },
     createdAt: {
         type: Date,
         default: Date.now
@@ -42,6 +46,13 @@ const appointmentSchema = new mongoose.Schema({
 });
 
 // Compound index to prevent double booking
-appointmentSchema.index({ date: 1, time: 1, status: 1 }, { unique: false });
+// Unique for Date + Time, ONLY for active appointments
+appointmentSchema.index(
+    { date: 1, time: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { isActive: true }
+    }
+);
 
 module.exports = mongoose.model('Appointment', appointmentSchema);

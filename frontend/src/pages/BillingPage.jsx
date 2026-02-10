@@ -6,8 +6,10 @@ import Toast from '../components/Toast';
 import PaymentModal from '../components/PaymentModal';
 import ManualInvoiceModal from '../components/ManualInvoiceModal';
 import { generatePDF, runAutoTable } from '../utils/pdfGenerator';
+import usePageTitle from '../hooks/usePageTitle';
 
 const BillingPage = () => {
+    usePageTitle('Facturación');
     const [files, setFiles] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(false);

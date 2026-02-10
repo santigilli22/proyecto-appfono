@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import es from 'date-fns/locale/es';
+import { format, parse } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { X, User, Phone, FileText, Clock, CheckCircle, XCircle, Calendar as CalendarIcon, MapPin, Trash2, PlusCircle } from 'lucide-react';
 // ...
 
@@ -206,15 +205,19 @@ const CustomAgenda = ({ events, timeSlots, compact = false, onlyEvents = false, 
                         {(events.length === 0 && onlyEvents) && (
                             <tr>
                                 <td colSpan={compact ? 2 : 3} className="px-6 py-16 text-center text-gray-400 bg-gray-50/50">
-                                    <div className="flex flex-col items-center justify-center gap-3">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-2">
-                                            <CalendarIcon className="w-8 h-8 text-gray-300" />
+                                    <div className="flex flex-col items-center justify-center gap-2">
+                                        <div className={`${compact ? 'w-10 h-10' : 'w-16 h-16'} bg-green-50 rounded-full flex items-center justify-center mb-1`}>
+                                            <CheckCircle className={`${compact ? 'w-5 h-5' : 'w-8 h-8'} text-green-400`} />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-gray-900 font-medium text-sm">No hay turnos programados</p>
-                                            <p className="text-xs text-gray-500 max-w-[200px] mx-auto">
-                                                No tenés pacientes agendados para este período. ¡Aprovechá para descansar!
+                                            <p className={`text-gray-400 font-medium ${compact ? 'text-xs uppercase tracking-wide' : 'text-sm'}`}>
+                                                {compact ? 'Libre' : 'No hay turnos programados'}
                                             </p>
+                                            {!compact && (
+                                                <p className="text-xs text-gray-400 max-w-[200px] mx-auto">
+                                                    No tenés pacientes agendados para este período. ¡Aprovechá para descansar!
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Optional Call to Action */}
                                         {!compact && (
